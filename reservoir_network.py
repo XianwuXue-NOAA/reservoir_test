@@ -8,7 +8,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import my_functions
-import my_functions_full
 
 # Read in config file
 cfg = my_functions.read_config(sys.argv[1])
@@ -37,8 +36,8 @@ velocity = cfg['NETWORK']['wave_velocity']  # wave velocity
 #====================================================================#
 #=== Load original flow data (RVIC grid format) ===#
 ds_rvic = xray.open_dataset(cfg['INPUT']['rvic_output_path'])
-da_rvic_flow = ds_rvic['streamflow'][:-1,:,:]  # delete last junk date
-da_rvic_flow = da_rvic_flow * pow(1000./25.4/12, 3)  # convert m3/s to cfs
+ds_rvic = ds_rvic.isel(time=slice(0,-1))   # delete last junk date
+da_rvic_flow = ds_rvic['streamflow'] * pow(1000./25.4/12, 3)  # convert m3/s to cfs
 da_flow = da_rvic_flow.copy()  # flow field, will be modified
 
 #=== Loop over each dam ===#
@@ -70,6 +69,36 @@ for i in range(len(df_dam_info)):
     da_flow = my_functions.modify_flow_all_downstream_cell(\
                         lat, lon, orig_flow=s_rvic_flow[pd.date_range(start_date_to_run, end_date_to_run)], \
                         release=s_release, da_flow=da_flow, dlatlon=cfg['NETWORK']['dlatlon'], \
-                        da_flowdir=da_flowdir, da_flowdis=da_flowdis, velocity=velocity)
+                        da_flowdir=da_flowdir, da_flowdis=da_flowdis, velocity=velocity)    
+
     
+#====================================================================#
+# Save modified streamflow to netCDF file
+#====================================================================#
+
+#=== Save modified streamflow ===#
+ds_flow_new = xray.Dataset({'streamflow': (['time', 'lat', 'lon'], da_flow.values)}, \
+                           coords={'lat': (['lat'], ds_rvic['lat'].values), \
+                                   'lon': (['lon'], ds_rvic['lon'].values), \
+                                   'time': (['time'], da_flow['time'].values)})
+ds_flow_new['streamflow'].attrs['units'] = 'cfs'
+ds_flow_new['streamflow'].attrs['long_name'] = 'Simulated regulated streamflow'
+
+ds_flow_new.to_netcdf('{}.modified_flow.nc'.format(cfg['OUTPUT']['out_flow_basepath']), \
+                      format='NETCDF4_CLASSIC')
+ds_flow_new.close()
+
+#=== Save flow change before and after reservoir operation ===#
+ds_flow_delta = xray.Dataset({'flow_delta': (['time', 'lat', 'lon'], \
+                                             da_flow.values-da_rvic_flow.values)}, \
+                             coords={'lat': (['lat'], ds_rvic['lat'].values), \
+                                     'lon': (['lon'], ds_rvic['lon'].values), \
+                                     'time': (['time'], da_flow['time'].values)})
+ds_flow_delta['flow_delta'].attrs['units'] = 'cfs'
+ds_flow_delta['flow_delta'].attrs['long_name'] = 'Simulated streamflow difference (regulated-unregulated'
+
+ds_flow_delta.to_netcdf('{}.modified_delta_flow.nc'.format(cfg['OUTPUT']['out_flow_basepath']), \
+                        format='NETCDF4_CLASSIC')
+ds_flow_delta.close()
+
 

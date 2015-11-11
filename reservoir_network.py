@@ -52,12 +52,17 @@ for i in range(len(df_dam_info)):
     bot_vol = df_dam_info.ix[i]['bot_vol_acre_feet']  # reservoir bottom volumn [acre-feet]
     max_flow = df_dam_info.ix[i]['max_flow_cfs']  # max flow [cfs]
     min_flow = df_dam_info.ix[i]['min_flow_cfs']  # min flow [cfs]
+    year_operated = df_dam_info.ix[i]['year_operated_start_of_Calendar_year']
+                    # year operation started
     print 'Simulating dam {}...'.format(dam_number)
     #=== Load and process rule curve ===#
     rule_curve_filename = os.path.join(cfg['DAM_INFO']['rule_curve_dir'], \
                               'dam{}_{}.txt'.format(dam_number, dam_name.replace(' ', '_')))
     s_rule_curve = my_functions.process_rule_curve(rule_curve_filename, \
-                                   start_date_to_run, end_date_to_run) # [acre-feet]
+                                    start_date_to_run, end_date_to_run) # [acre-feet]
+    # If year start operation is after the period considered, truncate the time before operation
+    s_rule_curve = s_rule_curve.truncate(before=dt.datetime(year_operated, 1, 1))
+        
     #=== Extract original flow data from RVIC output ===#
     s_rvic_flow = da_flow.loc[:,lat,lon].to_series()
     #=== Simulate reservoir operation ===#
@@ -67,7 +72,8 @@ for i in range(len(df_dam_info)):
                                               init_S, top_vol, bot_vol, max_flow, min_flow)
     #=== Modify flow for all downstream grid cells ===#
     da_flow = my_functions.modify_flow_all_downstream_cell(\
-                        lat, lon, orig_flow=s_rvic_flow[pd.date_range(start_date_to_run, end_date_to_run)], \
+                        lat, lon, \
+                        orig_flow=s_rvic_flow, \
                         release=s_release, da_flow=da_flow, dlatlon=cfg['NETWORK']['dlatlon'], \
                         da_flowdir=da_flowdir, da_flowdis=da_flowdis, velocity=velocity)    
 

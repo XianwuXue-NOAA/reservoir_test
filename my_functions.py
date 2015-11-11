@@ -301,8 +301,9 @@ def modify_flow_all_downstream_cell(lat, lon, orig_flow, release, da_flow, dlatl
         start_date_lagged = start_date_to_run + dt.timedelta(days=lag_days)
         end_date_lagged = end_date_to_run + dt.timedelta(days=lag_days)
         # Modify flow for this grid cell
-        da_flow.loc[pd.date_range(start_date_lagged, end_date_lagged),lat_current,lon_current] \
-                += s_dflow.values
+        if (end_date_lagged-orig_flow.index[-1]).days <= 0: # if within orig_flow time range
+            da_flow.loc[pd.date_range(start_date_lagged, end_date_lagged),lat_current,lon_current] \
+                    += s_dflow.values
         #=== Move to the next downstream grid cell ===#
         lat_current, lon_current = find_downstream_grid(da_flowdir, \
                                         lat_current, lon_current, dlatlon)
@@ -311,9 +312,6 @@ def modify_flow_all_downstream_cell(lat, lon, orig_flow, release, da_flow, dlatl
         # done with all modification for this dam
             break
     return da_flow
-
-
-
 
 
 

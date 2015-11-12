@@ -62,6 +62,8 @@ for i in range(len(df_dam_info)):
                                     start_date_to_run, end_date_to_run) # [acre-feet]
     # If year start operation is after the period considered, truncate the time before operation
     s_rule_curve = s_rule_curve.truncate(before=dt.datetime(year_operated, 1, 1))
+    if len(s_rule_curve)==0:  # if no period is operating, do not simulate
+        continue
         
     #=== Extract original flow data from RVIC output ===#
     s_rvic_flow = da_flow.loc[:,lat,lon].to_series()
@@ -76,7 +78,16 @@ for i in range(len(df_dam_info)):
                         orig_flow=s_rvic_flow, \
                         release=s_release, da_flow=da_flow, dlatlon=cfg['NETWORK']['dlatlon'], \
                         da_flowdir=da_flowdir, da_flowdis=da_flowdis, velocity=velocity)    
-
+    #=== Save storage ===#
+    df = pd.DataFrame()
+    df['year'] = s_storage.index.year
+    df['month'] = s_storage.index.month
+    df['day'] = s_storage.index.day
+    df['storage_acre_ft'] = s_storage.values
+    df[['year', 'month', 'day', 'storage_acre_ft']].\
+            to_csv('{}.storage.dam{}.txt'.format(cfg['OUTPUT']['out_flow_basepath'], \
+                                                 dam_number), \
+            sep='\t', index=False)
     
 #====================================================================#
 # Save modified streamflow to netCDF file

@@ -304,6 +304,11 @@ def modify_flow_all_downstream_cell(lat, lon, orig_flow, release, da_flow, dlatl
         if (end_date_lagged-orig_flow.index[-1]).days <= 0: # if within orig_flow time range
             da_flow.loc[pd.date_range(start_date_lagged, end_date_lagged),lat_current,lon_current] \
                     += s_dflow.values
+        else:   # if later than orig_flow time range
+            days_to_modify = (orig_flow.index[-1] - start_date_lagged).days + 1
+            da_flow.loc[pd.date_range(start_date_lagged, orig_flow.index[-1]),\
+                                      lat_current,lon_current] \
+                    += s_dflow.values[0:days_to_modify]
         #=== Move to the next downstream grid cell ===#
         lat_current, lon_current = find_downstream_grid(da_flowdir, \
                                         lat_current, lon_current, dlatlon)
